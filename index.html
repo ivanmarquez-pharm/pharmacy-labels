@@ -394,7 +394,7 @@
         <label for="quantity">Quantity:</label>
         <input id="quantity" type="text" value="" placeholder="e.g. Qty: 30" oninput="render()">
         <label for="lot">Lot #:</label>
-        <input id="lot" type="text" value="000000000" oninput="render()">
+        <input id="lot" type="text" value="U24TO9868" oninput="render()">
       </div>
 
       <div class="field-row compact">
@@ -403,7 +403,6 @@
         <label class="radio-option">
           <input type="radio" name="shape" value="round" checked onchange="render()"> Round
         </label>
-       
       </div>
 
       <div class="button-row">
@@ -465,8 +464,8 @@
         <input type="number" id="qrSize" value="38" step="1" min="20" max="60" oninput="render()">
         <label for="qrEcc">QR Error Corr.:</label>
         <select id="qrEcc" onchange="render()">
-          <option value="L">L (Low)</option>
-          <option value="M" selected>M (Medium)</option>
+          <option value="L" selected>L (Low — biggest modules)</option>
+          <option value="M">M (Medium)</option>
           <option value="Q">Q (Quartile)</option>
           <option value="H">H (High)</option>
         </select>
@@ -591,7 +590,10 @@ function buildQRSvg(text, cx, cy, sizeUnits, ecc) {
     return '';
   }
   const moduleCount = qr.getModuleCount();
-  const quietModules = 2;
+  // 1 module of quiet zone (recommended minimum is 4, but on a tiny pharma label
+  // the surrounding white circle already provides plenty of "quiet" space, and a
+  // smaller padding gives the modules themselves more pixels on the thermal print).
+  const quietModules = 1;
   const totalModules = moduleCount + quietModules * 2;
   const moduleSize = sizeUnits / totalModules;
   const startX = cx - sizeUnits / 2 + quietModules * moduleSize;
@@ -694,17 +696,33 @@ function buildLabelSVG(opts) {
     const zoneH      = zoneBottom - zoneTop;
 
     // Fixed small font for centre text in split layout
-    const cPt = Math.max(fontSizePt * 0.65, 4);
+    let cPt = Math.max(fontSizePt * 0.65, 4);
+
+    // QR sizing: honor the user's QR Size % setting (just like the regular layout).
+    // Enforce a scannable minimum (~32% of label diameter, i.e. ~0.32" on a 1" label)
+    // because anything smaller becomes unreadable on a 600 DPI thermal print.
+    if (qrEnabled && qrText) {
+      const userQrUnits = (size * qrSizePct) / 100;
+      const minScannable = size * 0.32;
+      qrSizeUnits = Math.max(userQrUnits, minScannable);
+    }
 
     // Tight spacing: date line height, small gap before QR, small gap after QR
-    const compH    = dateValue ? cPt * 1.1 + cPt * 0.85 + cPt * 0.5 : 0;  // two lines tight
-    const qtyH     = quantity   ? cPt * 1.1  : 0;
-    const gapComp  = cPt * 0.15;  // gap below date block
-    const gapQty   = cPt * 0.15;  // gap above quantity (same as above)
-    if (qrEnabled && qrText) {
-      qrSizeUnits = Math.min(zoneH * 0.75, zoneH - compH - gapComp - qtyH - gapQty - cPt);
-      qrSizeUnits = Math.max(qrSizeUnits, 0);
+    let compH    = dateValue ? cPt * 1.1 + cPt * 0.85 + cPt * 0.5 : 0;  // two lines tight
+    let qtyH     = quantity   ? cPt * 1.1  : 0;
+    let gapComp  = cPt * 0.15;
+    let gapQty   = cPt * 0.15;
+
+    // If everything doesn't fit, shrink the center text (not the QR) until it does
+    while (qrEnabled && qrText && cPt > 3 &&
+           (compH + gapComp + qrSizeUnits + gapQty + qtyH) > zoneH) {
+      cPt -= 0.25;
+      compH   = dateValue ? cPt * 1.1 + cPt * 0.85 + cPt * 0.5 : 0;
+      qtyH    = quantity  ? cPt * 1.1 : 0;
+      gapComp = cPt * 0.15;
+      gapQty  = cPt * 0.15;
     }
+
     const totalH = compH + gapComp + qrSizeUnits + gapQty + qtyH;
     let curY = zoneTop + (zoneH - totalH) / 2;  // centre the whole block
 
@@ -865,7 +883,7 @@ function render() {
 
   const diameterIn = parseFloat(document.getElementById('diameter').value) || 1;
   const maxFontPt = parseFloat(document.getElementById('fontSize').value) || 8;
-  const strokePt = parseFloat(document.getElementById('strokeWidth').value) || 1;
+  const strokePt = parseFloat(document.getElementById('strokeWidth').value) || 0.5;
   const fontWeight = document.getElementById('fontWeight').value;
   const offsetXIn = parseFloat(document.getElementById('offsetX').value) || 0;
   const offsetYIn = parseFloat(document.getElementById('offsetY').value) || 0;
