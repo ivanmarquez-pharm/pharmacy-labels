@@ -590,10 +590,7 @@ function buildQRSvg(text, cx, cy, sizeUnits, ecc) {
     return '';
   }
   const moduleCount = qr.getModuleCount();
-  // 1 module of quiet zone (recommended minimum is 4, but on a tiny pharma label
-  // the surrounding white circle already provides plenty of "quiet" space, and a
-  // smaller padding gives the modules themselves more pixels on the thermal print).
-  const quietModules = 1;
+  const quietModules = 2;
   const totalModules = moduleCount + quietModules * 2;
   const moduleSize = sizeUnits / totalModules;
   const startX = cx - sizeUnits / 2 + quietModules * moduleSize;
@@ -684,79 +681,50 @@ function buildLabelSVG(opts) {
 
   if (midText) {
     // ── SPLIT PRESET LAYOUT ────────────────────────────────────────────────────
-    // The second arc (midArc) inner edge is where centre content begins.
-    // midTextRadius = topTextRadius - fontSizePt * 1.25  (set in render)
-    // We derive its inner edge from the path string is not easy, so we
-    // recompute it here from known values.
-    const midR       = topTextRadius - fontSizePt * 1.05;
-    // Top of usable centre zone: bottom edge of mid-arc text
-    const zoneTop    = cy - midR + fontSizePt * 0.95;
-    // Bottom of usable centre zone: pulled up so centring lands higher
-    const zoneBottom = cy + bottomTextRadius * 0.45;
-    const zoneH      = zoneBottom - zoneTop;
+    // QR sizing from circular-label-generator-14: QR gets ALL remaining space
+    // after text. This makes the QR as large as possible, which improves scanning.
+    const midR    = topTextRadius - fontSizePt * 1.05;
+    const zoneTop = cy - midR + fontSizePt * 1.0;       // just below second arc
+    const zoneBottom = cy + bottomTextRadius * 0.58;     // pulls block up
+    const zoneH   = zoneBottom - zoneTop;
 
-    // Fixed small font for centre text in split layout
-    let cPt = Math.max(fontSizePt * 0.65, 4);
+    const cPt     = Math.max(fontSizePt * 0.65, 4);
+    const lineGap = cPt * 0.82;
 
-    // QR sizing: honor the user's QR Size % setting (just like the regular layout).
-    // Enforce a scannable minimum (~32% of label diameter, i.e. ~0.32" on a 1" label)
-    // because anything smaller becomes unreadable on a 600 DPI thermal print.
+    // Precise heights — consistent with what gets drawn below
+    // (date block = "COMPOUNDED" or "FILLED" header + the date itself = 2 lines)
+    const compH = dateValue ? cPt + lineGap : 0;
+    const qtyH  = quantity  ? cPt : 0;
+    const gapCQ = cPt * 0.18;  // gap between date block and QR
+    const gapQT = cPt * 0.18;  // gap between QR and quantity
+
+    // QR gets all remaining space
     if (qrEnabled && qrText) {
-      const userQrUnits = (size * qrSizePct) / 100;
-      const minScannable = size * 0.32;
-      qrSizeUnits = Math.max(userQrUnits, minScannable);
+      qrSizeUnits = Math.max(zoneH - compH - gapCQ - qtyH - gapQT, 0);
     }
 
-    // Tight spacing: date line height, small gap before QR, small gap after QR
-    let compH    = dateValue ? cPt * 1.1 + cPt * 0.85 + cPt * 0.5 : 0;  // two lines tight
-    let qtyH     = quantity   ? cPt * 1.1  : 0;
-    let gapComp  = cPt * 0.15;
-    let gapQty   = cPt * 0.15;
+    const totalH = compH + gapCQ + qrSizeUnits + gapQT + qtyH;
+    let curY = zoneTop + (zoneH - totalH) / 2;
 
-    // If everything doesn't fit, shrink the center text (not the QR) until it does
-    while (qrEnabled && qrText && cPt > 3 &&
-           (compH + gapComp + qrSizeUnits + gapQty + qtyH) > zoneH) {
-      cPt -= 0.25;
-      compH   = dateValue ? cPt * 1.1 + cPt * 0.85 + cPt * 0.5 : 0;
-      qtyH    = quantity  ? cPt * 1.1 : 0;
-      gapComp = cPt * 0.15;
-      gapQty  = cPt * 0.15;
-    }
-
-    const totalH = compH + gapComp + qrSizeUnits + gapQty + qtyH;
-    let curY = zoneTop + (zoneH - totalH) / 2;  // centre the whole block
-
-    // Date block — two lines: "COMPOUNDED" or "FILLED" header, then the date
+    // Date block — two tight lines: "COMPOUNDED" or "FILLED" header, then the date
     if (dateValue) {
-      const line1 = dateLabel.toUpperCase();
-      const line2 = dateValue;
-      const lineGap = cPt * 0.85; // tight line spacing
-      const totalCompH = cPt + lineGap + cPt;
-
       const cY1 = curY + cPt * 0.5;
-      const cW1 = maxWidthAtDy(cY1 - cy);
-      const cFit1 = fitFontSize(line1, cW1, cPt);
-      compoundedSvg = `<text x="${cx}" y="${cY1}"
-        text-anchor="middle" dominant-baseline="middle"
-        font-family="Arial, Helvetica, sans-serif"
-        font-size="${cFit1}" font-weight="${fontWeight}" fill="black">${escapeXML(line1)}</text>`;
-
-      const cY2 = curY + cPt * 0.5 + lineGap;
-      const cW2 = maxWidthAtDy(cY2 - cy);
-      const cFit2 = fitFontSize(line2, cW2, cPt);
-      compoundedSvg += `<text x="${cx}" y="${cY2}"
-        text-anchor="middle" dominant-baseline="middle"
-        font-family="Arial, Helvetica, sans-serif"
-        font-size="${cFit2}" font-weight="${fontWeight}" fill="black">${escapeXML(line2)}</text>`;
-
-      curY += totalCompH + gapComp;
+      const cW  = maxWidthAtDy(cY1 - cy);
+      const label = dateLabel.toUpperCase();
+      compoundedSvg =
+        `<text x="${cx}" y="${cY1}" text-anchor="middle" dominant-baseline="middle"
+          font-family="Arial, Helvetica, sans-serif"
+          font-size="${fitFontSize(label, cW, cPt)}" font-weight="${fontWeight}" fill="black">${escapeXML(label)}</text>` +
+        `<text x="${cx}" y="${cY1 + lineGap}" text-anchor="middle" dominant-baseline="middle"
+          font-family="Arial, Helvetica, sans-serif"
+          font-size="${fitFontSize(dateValue, cW, cPt)}" font-weight="${fontWeight}" fill="black">${escapeXML(dateValue)}</text>`;
+      curY += compH + gapCQ;
     }
 
     // QR — middle
     if (qrEnabled && qrText && qrSizeUnits > 0) {
-      const qrCY = curY + qrSizeUnits / 2;
-      qrSvg = buildQRSvg(qrText, cx, qrCY, qrSizeUnits, qrEcc);
-      curY += qrSizeUnits + gapQty;
+      qrSvg = buildQRSvg(qrText, cx, curY + qrSizeUnits / 2, qrSizeUnits, qrEcc);
+      curY += qrSizeUnits + gapQT;
     }
 
     // Quantity — bottom
