@@ -9,7 +9,7 @@
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
     background: #e9e9eb;
-    color: #1d1d1f;
+    color: #1d1d1f;h
     min-height: 100vh;
     padding: 32px 16px;
     -webkit-font-smoothing: antialiased;
@@ -407,7 +407,7 @@
 
       <div class="button-row">
         <button id="previewBtn" onclick="togglePreview()">Preview</button>
-        <button class="primary" onclick="window.print()">Print</button>
+        <button class="primary" onclick="printLabels()">Print</button>
         <button onclick="resetForm()">Reset</button>
       </div>
     </div>
@@ -914,12 +914,6 @@ function render() {
   // Preview (only one copy needed visually)
   document.getElementById('previewWrap').innerHTML = svgMarkup;
 
-  // Print: emit `copies` separate label-pages so the printer feeds N stickers
-  const pages = [];
-  for (let i = 0; i < copies; i++) {
-    pages.push(`<div class="label-page">${svgMarkup}</div>`);
-  }
-  document.getElementById('printOnly').innerHTML = pages.join('');
 
   // Visual scaling
   const previewPx = Math.min(Math.round(diameterIn * 96 * 3.6), 460);
@@ -934,6 +928,19 @@ function render() {
     `${diameterIn}" × ${diameterIn}" media — ${fontSizePt}pt text${fitNote}${offsetNote}${copiesNote}`;
 
   updatePrintPageSize(diameterIn);
+}
+
+function printLabels() {
+  const copies = Math.max(1, Math.min(500, parseInt(document.getElementById('copies').value, 10) || 1));
+  const svgMarkup = document.getElementById('previewWrap').innerHTML;
+  const printOnly = document.getElementById('printOnly');
+  const pages = [];
+  for (let i = 0; i < copies; i++) {
+    pages.push(`<div class="label-page">${svgMarkup}</div>`);
+  }
+  printOnly.innerHTML = pages.join('');
+  window.print();
+  printOnly.innerHTML = '';
 }
 
 function getSingleSVGString() {
