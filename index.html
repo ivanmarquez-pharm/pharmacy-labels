@@ -884,7 +884,24 @@ function render() {
 
   // autoFitFontSize: for split presets use the shorter first half so font isn't shrunk
   const fitTopText = splitLines ? splitLines[0] : topText;
-  const fontSizePt = autoFitFontSize(fitTopText, bottomText, borderR, maxFontPt, fontWeight);
+  let fontSizePt = autoFitFontSize(fitTopText, bottomText, borderR, maxFontPt, fontWeight);
+
+  // For split presets, autoFitFontSize only checks the FIRST curved line.
+  // Make sure the SECOND curved line (e.g. "Zin10/B6 4.5/GHK-Cu2") also fits
+  // on its own arc; shrink further only if needed so no characters are
+  // clipped. This only affects labels that use SPLIT_PRESETS.
+  if (splitLines) {
+    while (fontSizePt > 3) {
+      const capH = fontSizePt * 0.72;
+      const margin = fontSizePt * 0.22;
+      const topR = borderR - capH - margin;
+      const midR = topR - fontSizePt * 1.05;
+      const midArc = Math.PI * midR;
+      const midW = measureTextWidthPt(splitLines[1], fontSizePt, fontWeight);
+      if (midW <= midArc * 0.96) break;
+      fontSizePt -= 0.25;
+    }
+  }
   const textMargin = fontSizePt * 0.22;
   const capHeight = fontSizePt * 0.72;
   const descender = fontSizePt * 0.20;
