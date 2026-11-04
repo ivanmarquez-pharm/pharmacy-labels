@@ -369,7 +369,7 @@
             <option value="MINOXIDIL 2.5MG">MINOXIDIL 2.5MG</option>
           </optgroup>
           <optgroup label="Hair Spray">
-            <option value="Minoxidil 6% Melatonin 0.005% GHK-Cu 0.1%  - Women">Minoxidil 6% Melatonin 0.005% GHK-Cu 0.1% - Women</option>
+            <option value="Minoxidil 6% Melatonin 0.005% GHK-Cu 0.1% - Women">Minoxidil 6% Melatonin 0.005% GHK-Cu 0.1% - Women</option>
             <option value="Finasteride 0.3% Minoxidil 6% Melatonin 0.005% GHK-Cu 0.1% - Men">Finasteride 0.3% Minoxidil 6% Melatonin 0.005% GHK-Cu 0.1% - Men</option>
           </optgroup>
         </select>
@@ -659,7 +659,7 @@ function updatePrintPageSize(diameterIn) {
 
 function buildLabelSVG(opts) {
   const {
-    topText, midText, midPath, bottomText, dateValue, dateLabel, quantity, quantityBelowQR,
+    topText, midText, midPath, bottomText, dateValue, dateLabel, quantity, quantityBelowQR, storageText,
     diameterIn, fontSizePt, strokePt, fontWeight,
     size, cx, cy, borderR, topPath, bottomPath,
     topTextRadius, bottomTextRadius, offsetXPt, offsetYPt,
@@ -680,7 +680,7 @@ function buildLabelSVG(opts) {
     return pt;
   }
 
-  let qrSvg = '', compoundedSvg = '', quantitySvg = '';
+  let qrSvg = '', compoundedSvg = '', quantitySvg = '', storageSvg = '';
   let qrSizeUnits = 0;
 
   if (midText) {
@@ -699,15 +699,16 @@ function buildLabelSVG(opts) {
     // (date block = "COMPOUNDED" or "FILLED" header + the date itself = 2 lines)
     const compH = dateValue ? cPt + lineGap : 0;
     const qtyH  = quantity  ? cPt : 0;
+    const stoH  = storageText ? cPt : 0;  // storage note line under the QR
     const gapCQ = cPt * 0.18;  // gap between date block and QR
     const gapQT = cPt * 0.18;  // gap between QR and quantity
 
     // QR gets all remaining space
     if (qrEnabled && qrText) {
-      qrSizeUnits = Math.max(zoneH - compH - gapCQ - qtyH - gapQT, 0);
+      qrSizeUnits = Math.max(zoneH - compH - gapCQ - stoH - qtyH - gapQT, 0);
     }
 
-    const totalH = compH + gapCQ + qrSizeUnits + gapQT + qtyH;
+    const totalH = compH + gapCQ + qrSizeUnits + gapQT + stoH + qtyH;
     let curY = zoneTop + (zoneH - totalH) / 2;
 
     // Date block — two tight lines: "COMPOUNDED" or "FILLED" header, then the date
@@ -729,6 +730,17 @@ function buildLabelSVG(opts) {
     if (qrEnabled && qrText && qrSizeUnits > 0) {
       qrSvg = buildQRSvg(qrText, cx, curY + qrSizeUnits / 2, qrSizeUnits, qrEcc);
       curY += qrSizeUnits + gapQT;
+    }
+
+    // Storage note (e.g. "Room Temperature") — directly under the QR
+    if (storageText) {
+      const sY = curY + cPt * 0.5;
+      const sW = maxWidthAtDy(sY - cy);
+      storageSvg = `<text x="${cx}" y="${sY}"
+        text-anchor="middle" dominant-baseline="middle"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="${fitFontSize(storageText, sW, cPt)}" font-weight="${fontWeight}" fill="black">${escapeXML(storageText)}</text>`;
+      curY += stoH;
     }
 
     // Quantity — bottom
@@ -792,6 +804,23 @@ function buildLabelSVG(opts) {
         ${escapeXML(quantity)}
       </text>`;
     }
+
+    // Storage note (e.g. "Room Temperature") — in the gap between the QR
+    // and the curved Lot/BUD text at the bottom
+    if (storageText) {
+      const qrBottomY = (qrEnabled && qrText) ? (qrCenterY + qrSizeUnits / 2) : (cy + fontSizePt * 1.2);
+      const arcTopY = cy + bottomTextRadius - fontSizePt * 0.72;  // top of bottom arc text
+      const gapH = Math.max(arcTopY - qrBottomY, 0);
+      const sY = qrBottomY + gapH * 0.4;
+      const sStart = Math.min(fontSizePt * 0.85, gapH * 0.8);
+      const sFit = fitFontSize(storageText, maxWidthAtDy(sY - cy) * 0.9, sStart);
+      storageSvg = `
+      <text x="${cx}" y="${sY}" text-anchor="middle" dominant-baseline="middle"
+            font-family="Arial, Helvetica, sans-serif"
+            font-size="${sFit}" font-weight="${fontWeight}" fill="black">
+        ${escapeXML(storageText)}
+      </text>`;
+    }
   }
 
   const hasOffset = offsetXPt !== 0 || offsetYPt !== 0;
@@ -815,6 +844,7 @@ function buildLabelSVG(opts) {
     ${qrSvg}
     ${compoundedSvg}
     ${quantitySvg}
+    ${storageSvg}
     <text font-family="Arial, Helvetica, sans-serif"
           font-size="${fontSizePt}" font-weight="${fontWeight}" fill="black">
       <textPath href="#topArc" startOffset="50%" text-anchor="middle">${escapeXML(topText)}</textPath>
@@ -880,6 +910,13 @@ function render() {
     'Finasteride 0.3% Minoxidil 6% Melatonin 0.005% GHK-Cu 0.1% Hair spray - Men': ['Finasteride 0.3% Minoxidil 6% Melatonin 0.005%', 'GHK-Cu 0.1% Hair spray - Men']
   };
   const splitLines = SPLIT_PRESETS[description] || null;
+
+  // Presets that print a storage note under the QR code
+  const STORAGE_NOTES = {
+    'Minoxidil 6% Melatonin 0.005% GHK-Cu 0.1% - Women': 'Room Temperature',
+    'Finasteride 0.3% Minoxidil 6% Melatonin 0.005% GHK-Cu 0.1% - Men': 'Room Temperature'
+  };
+  const storageText = STORAGE_NOTES[description.replace(/\s+/g, ' ')] || '';
   // For split presets, quantity goes BELOW the QR instead of above
   const quantityBelowQR = !!splitLines;
 
@@ -924,7 +961,7 @@ function render() {
     topText: splitLines ? splitLines[0] : topText,
     midText: splitLines ? splitLines[1] : null,
     midPath,
-    bottomText, dateValue, dateLabel, quantity, quantityBelowQR,
+    bottomText, dateValue, dateLabel, quantity, quantityBelowQR, storageText,
     diameterIn, fontSizePt, strokePt, fontWeight,
     size, cx, cy, borderR,
     topPath, bottomPath, topTextRadius, bottomTextRadius,
