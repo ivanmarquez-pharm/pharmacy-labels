@@ -368,6 +368,10 @@
             <option value="FINASTERIDE 1MG">FINASTERIDE 1MG</option>
             <option value="MINOXIDIL 2.5MG">MINOXIDIL 2.5MG</option>
           </optgroup>
+          <optgroup label="Hair Spray">
+            <option value="Minoxidil 6% Melatonin 0.005% GHK-Cu 0.1% Hair spray - Women">Minoxidil 6% Melatonin 0.005% GHK-Cu 0.1% Hair spray - Women</option>
+            <option value="Finasteride 0.3% Minoxidil 6% Melatonin 0.005% GHK-Cu 0.1% Hair spray - Men">Finasteride 0.3% Minoxidil 6% Melatonin 0.005% GHK-Cu 0.1% Hair spray - Men</option>
+          </optgroup>
         </select>
       </div>
 
@@ -871,7 +875,9 @@ function render() {
   // Long presets that need the description split across two arcs
   const SPLIT_PRESETS = {
     'Fin1.1/Min3.3/Bio2.5/L-Cys70/Zin10/B6 4.5/GHK-Cu2': ['Fin1.1/Min3.3/Bio2.5/L-Cys70', 'Zin10/B6 4.5/GHK-Cu2'],
-    'Min1.5/Bio2.5/L-Cys70/Zin10/B6 4.5/GHK-Cu2':        ['Min1.5/Bio2.5/L-Cys70',         'Zin10/B6 4.5/GHK-Cu2']
+    'Min1.5/Bio2.5/L-Cys70/Zin10/B6 4.5/GHK-Cu2':        ['Min1.5/Bio2.5/L-Cys70',         'Zin10/B6 4.5/GHK-Cu2'],
+    'Minoxidil 6% Melatonin 0.005% GHK-Cu 0.1% Hair spray - Women': ['Minoxidil 6% Melatonin 0.005%', 'GHK-Cu 0.1% Hair spray - Women'],
+    'Finasteride 0.3% Minoxidil 6% Melatonin 0.005% GHK-Cu 0.1% Hair spray - Men': ['Finasteride 0.3% Minoxidil 6% Melatonin 0.005%', 'GHK-Cu 0.1% Hair spray - Men']
   };
   const splitLines = SPLIT_PRESETS[description] || null;
   // For split presets, quantity goes BELOW the QR instead of above
